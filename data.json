@@ -1,0 +1,17 @@
+{
+  "app": {
+    "company": "SHD",
+    "title": "Palet QR + Adresleme",
+    "defaultQrMode": "ID_ONLY"
+  },
+  "items": [
+    {
+      "kanban_id": "KBN-2026-000483",
+      "sku": "OZMAYA-A",
+      "lot_no": "LOT123",
+      "eg": "EG-LOT123-A",
+      "prod_date": "2026-02-20",
+      "exp_date": "2026-05-20"
+    }
+  ]
+}
