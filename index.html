@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adresleme – Kanban QR</title>
+
+  <!-- QR Kamera Okuma -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --border:#e2e8f0;
+      --shadow: 0 10px 24px rgba(2,6,23,.10);
+      --radius:18px;
+
+      --btn:#0b5fff;
+      --btn2:#10b981;
+      --danger:#ef4444;
+
+      --slot: 28px;
+      --gap: 6px;
+
+      --slotBorder:#cbd5e1;
+      --slotBg:#ffffff;
+      --slotHover:#eef2ff;
+
+      --wallLine:#475569;
+      --doorBg:#f59e0b;
+      --doorHover:#fde68a;
+      --doorBorder:#f59e0b;
+
+      --okBg:#ecfdf5;
+      --okBorder:#bbf7d0;
+      --badBg:#fff5f5;
+      --badBorder:#fecaca;
+
+      --barH: 74px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:var(--bg);
+      color:var(--text);
+      padding-bottom: calc(var(--barH) + 14px); /* bottom bar için */
+    }
+
+    .wrap{
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .topbar{
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+    }
+    .title h1{font-size:18px;margin:0;letter-spacing:.2px}
+    .title p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.35}
+
+    .kpis{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 6px 10px; border-radius:999px;
+      border:1px solid var(--border); background:#f8fafc;
+      font-weight: 900; font-size:12px; white-space:nowrap;
+    }
+    .tag.ok{border-color:var(--okBorder); background:var(--okBg)}
+    .tag.bad{border-color:var(--badBorder); background:var(--badBg)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap: 12px;
+    }
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .card h2{
+      margin:0 0 10px 0;
+      font-size: 13px;
+      color:var(--muted);
+      font-weight: 800;
+      letter-spacing:.2px;
+      text-transform: uppercase;
+    }
+
+    .actions{display:flex; gap:8px; flex-wrap:wrap}
+    button{font-family:inherit}
+    .btn{
+      border:none;border-radius:14px;
+      padding:10px 12px; min-height:44px;
+      font-weight:1000; cursor:pointer;
+      box-shadow: 0 8px 18px rgba(2,6,23,.10);
+      color:white;
+    }
+    .btn.primary{background: var(--btn)}
+    .btn.good{background: var(--btn2)}
+    .btn.danger{background: var(--danger)}
+    .btn:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
+
+    .box{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px 12px;
+      background:#fff;
+    }
+    .box.ok{border-color:var(--okBorder); background: var(--okBg);}
+    .box.bad{border-color:var(--badBorder); background: var(--badBg);}
+
+    .kv{display:grid; gap:6px; font-size:13px;}
+    .kv b{font-weight:1000}
+
+    .planCanvas{
+      width: 100%;
+      border:1px dashed var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      overflow:auto;
+      padding: 14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .tabs{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0 0 10px 0;}
+    .tab{
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:1000;
+      cursor:pointer;
+      min-height:40px;
+      font-size:13px;
+    }
+    .tab.active{background:#eef2ff;border-color:#c7d2fe}
+
+    .zone{
+      display:inline-block;
+      background:#ffffffcc;
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      box-shadow: 0 10px 22px rgba(2,6,23,.08);
+      backdrop-filter: blur(6px);
+      width: fit-content;
+      max-width: 100%;
+      opacity: 1;
+      transition: opacity .15s ease;
+    }
+    .zoneHeader{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom: 8px;}
+    .zoneHeader .name{font-weight:1000;font-size:13px}
+    .zoneHeader .meta{color: var(--muted); font-size:11px; white-space:nowrap}
+
+    .patternGrid{
+      display:grid;
+      gap: var(--gap);
+      align-content:start;
+      justify-content:start;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .slot{
+      width: var(--slot);
+      height: var(--slot);
+      border: 1px solid var(--slotBorder);
+      background: var(--slotBg);
+      border-radius: 6px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      touch-action: manipulation;
+      padding:0;
+      font-weight: 1000;
+      font-size: 12px;
+      color: #0f172a;
+      position:relative;
+    }
+    .slot:hover{ background: var(--slotHover); }
+
+    /* seçili adres */
+    .slot.selected{
+      outline: 3px solid var(--btn2);
+      outline-offset: 1px;
+      background: #ecfdf5;
+      border-color: var(--btn2);
+    }
+
+    /* dolu adres göstergesi */
+    .slot.has-pallet{
+      box-shadow: inset 0 0 0 2px rgba(16,185,129,.35);
+      background: linear-gradient(180deg, #ffffff, #f0fdf4);
+    }
+    .slot .tiny{
+      position:absolute; right:3px; bottom:2px;
+      font-size:9px; font-weight:1000;
+      color:#334155;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:1px 5px;
+      opacity:.95;
+      pointer-events:none;
+    }
+
+    .slot.door{
+      width: calc((var(--slot) * 2) + var(--gap));
+      height: var(--slot);
+      background: var(--doorBg);
+      border-color: var(--doorBorder);
+      border-radius: 10px;
+      color: #0f172a;
+    }
+    .slot.door:hover{ background: var(--doorHover); }
+
+    .voidCell{width:var(--slot);height:var(--slot);visibility:hidden;pointer-events:none}
+    .wallCell{width:var(--slot);height:var(--slot);background:transparent;pointer-events:none;position:relative}
+    .wallH::before{
+      content:"";
+      position:absolute;left:1px;right:1px;top:50%;
+      height:2px;transform:translateY(-50%);
+      background:var(--wallLine);border-radius:2px;opacity:.95;
+    }
+    .wallV::before{
+      content:"";
+      position:absolute;top:1px;bottom:1px;left:50%;
+      width:2px;transform:translateX(-50%);
+      background:var(--wallLine);border-radius:2px;opacity:.95;
+    }
+    .wallC::before{
+      content:"";
+      position:absolute;left:50%;top:50%;
+      width:2px;height:50%;
+      transform:translate(-50%,-50%);
+      background:var(--wallLine);border-radius:2px;opacity:.95;
+    }
+    .wallC::after{
+      content:"";
+      position:absolute;left:50%;top:50%;
+      width:50%;height:2px;
+      transform:translate(-50%,-50%);
+      background:var(--wallLine);border-radius:2px;opacity:.95;
+    }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--barH) + 10px);
+      transform: translateX(-50%);
+      background: rgba(15,23,42,.92);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+      display:none;
+      z-index: 90;
+      max-width: min(92vw, 740px);
+      text-align:center;
+    }
+
+    /* QR Modal */
+    .modalBackdrop{
+      position:fixed; inset:0;
+      background: rgba(2,6,23,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index: 120;
+    }
+    .modal{
+      width: min(680px, 96vw);
+      background:#fff;
+      border-radius: 18px;
+      border:1px solid var(--border);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .modalHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+    .modalHeader .h{font-weight:1000}
+    .modalBody{padding:14px; display:grid; gap:12px;}
+    #qrReader{
+      width:100%;
+      border:1px dashed var(--border);
+      border-radius: 14px;
+      overflow:hidden;
+      background:#0b1220;
+    }
+    .mini{
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-height: 44px;
+      font-weight: 900;
+      cursor:pointer;
+    }
+
+    /* Bottom confirm bar */
+    .confirmBar{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      height: var(--barH);
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      display:none;
+      align-items:center;
+      z-index: 110;
+    }
+    .confirmBar .inner{
+      max-width: 1220px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 10px 16px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    .confirmBar .left{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width: 240px;
+    }
+    .confirmBar .left .t{font-weight:1000; font-size:13px;}
+    .confirmBar .left .s{font-size:12px; color:var(--muted);}
+    .confirmBar .right{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+    .confirmBar .right .btn{min-height:46px}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title">
+        <h1>Kanban QR → Adresleme</h1>
+        <p>
+          Akış: <b>QR Oku</b> → sistem <b>Okundu</b> der → kroki aktif olur → adres seç →
+          altta <b>ONAYLA</b> çıkar → palet/adres kaydedilir.
+        </p>
+      </div>
+      <div class="kpis">
+        <span class="tag" id="tagScan">QR: Bekleniyor</span>
+        <span class="tag" id="tagAddr">Adres: Seçilmedi</span>
+        <span class="tag" id="tagStock">Dolu: 0</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- SOL: Kroki -->
+      <div class="card">
+        <h2>Kroki / Adres Seçimi</h2>
+
+        <div class="planCanvas">
+          <div class="tabs" id="tabs">
+            <button class="tab active" data-tab="all" type="button">Hepsi</button>
+            <button class="tab" data-tab="3" type="button">D3</button>
+            <button class="tab" data-tab="2" type="button">D2</button>
+            <button class="tab" data-tab="1" type="button">D1</button>
+          </div>
+          <div id="canvas"></div>
+        </div>
+
+        <div class="actions" style="margin-top:12px;">
+          <button class="btn primary" id="btnScan" type="button">QR Oku (Kamera)</button>
+          <button class="btn good" id="btnPaste" type="button">QR Yapıştır</button>
+          <button class="btn danger" id="btnClear" type="button">Seçimi Temizle</button>
+        </div>
+
+        <div style="margin-top:10px;color:var(--muted);font-size:12px;line-height:1.35">
+          <b>Güvenli yöntem:</b> QR içinde sadece <span class="mono">KBN-...</span> ID olsun.
+          Ürün detayları <span class="mono">data.json</span>’dan çekilir.
+        </div>
+      </div>
+
+      <!-- SAĞ: Aktif Palet -->
+      <div class="card">
+        <h2>Aktif Palet</h2>
+
+        <div class="box" id="boxPallet">
+          <div class="kv">
+            <div><b>ID:</b> <span class="mono" id="p_id">-</span></div>
+            <div><b>SKU:</b> <span id="p_sku">-</span></div>
+            <div><b>LOT:</b> <span class="mono" id="p_lot">-</span></div>
+            <div><b>EG:</b> <span class="mono" id="p_eg">-</span></div>
+            <div><b>ÜRT/SKT:</b> <span class="mono" id="p_dates">-</span></div>
+            <div><b>Mevcut Adres:</b> <span class="mono" id="p_addr">-</span></div>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top:12px;">
+          <button class="btn danger" id="btnUnassign" type="button" disabled>Adresi Kaldır</button>
+          <button class="btn good" id="btnExport" type="button">JSON Dışa Aktar</button>
+        </div>
+
+        <div style="margin-top:10px;color:var(--muted);font-size:12px;line-height:1.35">
+          <b>Kayıt yeri:</b> Tarayıcı (localStorage). İstersen dışa aktarıp SAP/ERP’ye import edebilirsin.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- QR Modal -->
+  <div class="modalBackdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modalHeader">
+        <div class="h">QR Oku</div>
+        <button class="mini" id="btnCloseModal" type="button">Kapat</button>
+      </div>
+      <div class="modalBody">
+        <div id="qrReader"></div>
+        <div style="font-size:12px;color:var(--muted)">
+          İpucu: GitHub Pages’ta kamera için sayfa <b>HTTPS</b> olmalı ve izin vermelisin.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Confirm Bar -->
+  <div class="confirmBar" id="confirmBar">
+    <div class="inner">
+      <div class="left">
+        <div class="t" id="barTitle">Onayla</div>
+        <div class="s" id="barSub">-</div>
+      </div>
+      <div class="right">
+        <button class="btn danger" id="btnBarCancel" type="button">Vazgeç</button>
+        <button class="btn good" id="btnBarConfirm" type="button">ONAYLA (Kaydet)</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // =========================
+  // 1) Storage keys
+  // =========================
+  const LS_STATE = "kanban_address_state_v1"; // { [id]: { address, ts } }
+  const LS_LOGS  = "kanban_address_logs_v1";  // [{ts,type,id,address,detail}]
+  const $ = (id) => document.getElementById(id);
+
+  // =========================
+  // 2) UI refs
+  // =========================
+  const tagScan  = $("tagScan");
+  const tagAddr  = $("tagAddr");
+  const tagStock = $("tagStock");
+
+  const p_id    = $("p_id");
+  const p_sku   = $("p_sku");
+  const p_lot   = $("p_lot");
+  const p_eg    = $("p_eg");
+  const p_dates = $("p_dates");
+  const p_addr  = $("p_addr");
+
+  const btnScan     = $("btnScan");
+  const btnPaste    = $("btnPaste");
+  const btnClear    = $("btnClear");
+  const btnUnassign = $("btnUnassign");
+  const btnExport   = $("btnExport");
+
+  const toastEl = $("toast");
+  const canvas  = $("canvas");
+  const tabsWrap = $("tabs");
+
+  // modal
+  const modalBackdrop = $("modalBackdrop");
+  const btnCloseModal = $("btnCloseModal");
+  let qrScanner = null;
+  let lastScanTs = 0;
+
+  // bottom bar
+  const confirmBar = $("confirmBar");
+  const btnBarCancel  = $("btnBarCancel");
+  const btnBarConfirm = $("btnBarConfirm");
+  const barTitle = $("barTitle");
+  const barSub   = $("barSub");
+
+  // =========================
+  // 3) Data
+  // =========================
+  let DB = { app:{}, items:[] };
+
+  let state = loadJSON(LS_STATE, {});
+  let logs  = loadJSON(LS_LOGS, []);
+
+  let activeId = "";
+  let activeItem = null;
+
+  let selectedAddr = "";
+  let selectedBtn = null;
+
+  // =========================
+  // 4) Patterns (kroki)
+  // =========================
+  const PATTERN_D3 = [
+    "...LWWWWWWWWWWL",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "...|P..PPPPPPP|",
+    "LWWWW..WWWWWWWWWWWWL"
+  ];
+
+  const PATTERN_D2 = [
+    "LWWWW..WWWWWWWWWWWWL",
+    ".|.................|",
+    ".|PPP..PPPPPPPPPPP.|",
+    ".|PPP..PPPPPPPPPPP.|",
+    ".|PPP..PPPPPPPPPPP.|",
+    ".|PPP..PPPPPPPPPPP.|",
+    ".|PPP..PPPPPPPPPPP.|",
+    ".|PPP..PPPPPPPPPPP.|",
+    "LWWWW..WWWWWWWWWWWWWL"
+  ];
+
+  const PATTERN_D1 = [
+    "LWWWW..WWWWWWWWWWWL",
+    "|.................|",
+    "|PPPP..PPPPPPPPPPP|",
+    "|CPPP...CPPPPCPPPP|",
+    "|PPPP..PPPPPPPPPPP|",
+    "|......PPPPPPPPPPP|",
+    "|......PPPPPPPPPPP|",
+    "|C......CPPPPCPPPP|",
+    "|PPP...PPPPPPPPPPP|",
+    "|PPP..............|",
+    "|PPP..............|",
+    "LWWWW..WWW..WWW..WL",
+    "|....D...D...D.|"
+  ];
+
+  // =========================
+  // 5) Helpers
+  // =========================
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.style.display = "block";
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(()=> toastEl.style.display="none", 2200);
+  }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function loadJSON(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      if(!raw) return fallback;
+      const val = JSON.parse(raw);
+      return (val === null || val === undefined) ? fallback : val;
+    }catch(e){ return fallback; }
+  }
+  function saveJSON(key, val){
+    localStorage.setItem(key, JSON.stringify(val));
+  }
+  function nowISO(){
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  function logEvent(type, payload){
+    logs.unshift({ ts: nowISO(), type, ...payload });
+    saveJSON(LS_LOGS, logs);
+  }
+
+  function findItemById(id){
+    return DB.items.find(x => x.kanban_id === id) || null;
+  }
+
+  function getAddressOf(id){
+    return state?.[id]?.address || "";
+  }
+
+  function setActive(id){
+    activeId = (id || "").trim();
+    activeItem = activeId ? findItemById(activeId) : null;
+
+    if(!activeId){
+      tagScan.textContent = "QR: Bekleniyor";
+      tagScan.className = "tag";
+      btnUnassign.disabled = true;
+
+      p_id.textContent = "-";
+      p_sku.textContent = "-";
+      p_lot.textContent = "-";
+      p_eg.textContent  = "-";
+      p_dates.textContent = "-";
+      p_addr.textContent  = "-";
+      return;
+    }
+
+    tagScan.textContent = "QR: OKUNDU";
+    tagScan.className = "tag ok";
+
+    p_id.textContent = activeId;
+    if(activeItem){
+      p_sku.textContent = activeItem.sku || "-";
+      p_lot.textContent = activeItem.lot_no || "-";
+      p_eg.textContent  = activeItem.eg || "-";
+      p_dates.textContent = `${activeItem.prod_date || "-"} / ${activeItem.exp_date || "-"}`;
+    }else{
+      // DB’de yoksa bile adresleme yapılabilir (gerçekte ERP’den çekeceksin)
+      p_sku.textContent = "(DB'de yok)";
+      p_lot.textContent = "-";
+      p_eg.textContent  = "-";
+      p_dates.textContent = "-";
+    }
+
+    const addr = getAddressOf(activeId);
+    p_addr.textContent = addr ? addr : "-";
+    btnUnassign.disabled = !addr;
+
+    logEvent("SCAN", { id: activeId, detail: activeItem ? "known" : "unknown" });
+    renderOccupancy();
+    updateStockTag();
+    toast(`Okundu: ${activeId}`);
+  }
+
+  function clearSelection(){
+    selectedAddr = "";
+    if(selectedBtn) selectedBtn.classList.remove("selected");
+    selectedBtn = null;
+    tagAddr.textContent = "Adres: Seçilmedi";
+    tagAddr.className = "tag";
+    hideConfirmBar();
+  }
+
+  function showConfirmBar(){
+    confirmBar.style.display = "flex";
+    barTitle.textContent = "Adres Kaydı Onayı";
+    barSub.innerHTML = `<span class="mono">${activeId}</span> → <span class="mono">${selectedAddr}</span>`;
+  }
+  function hideConfirmBar(){
+    confirmBar.style.display = "none";
+    barTitle.textContent = "Onayla";
+    barSub.textContent = "-";
+  }
+
+  function saveAddress(){
+    if(!activeId){ toast("Önce QR okut."); return; }
+    if(!selectedAddr){ toast("Önce adres seç."); return; }
+
+    state[activeId] = { address: selectedAddr, ts: nowISO() };
+    saveJSON(LS_STATE, state);
+
+    p_addr.textContent = selectedAddr;
+    btnUnassign.disabled = false;
+
+    logEvent("ASSIGN", { id: activeId, address: selectedAddr, detail: "saved" });
+
+    toast(`Kaydedildi: ${activeId} → ${selectedAddr}`);
+    renderOccupancy();
+    updateStockTag();
+    clearSelection();
+  }
+
+  function unassign(){
+    if(!activeId){ toast("Önce QR okut."); return; }
+    const old = getAddressOf(activeId);
+    if(!old){ toast("Bu paletin adresi yok."); return; }
+
+    state[activeId] = { address: "", ts: nowISO() };
+    saveJSON(LS_STATE, state);
+
+    p_addr.textContent = "-";
+    btnUnassign.disabled = true;
+
+    logEvent("UNASSIGN", { id: activeId, address: old, detail: "cleared" });
+
+    toast(`Adres kaldırıldı: ${activeId}`);
+    renderOccupancy();
+    updateStockTag();
+  }
+
+  function updateStockTag(){
+    // dolu = adresi olan id sayısı
+    let filled = 0;
+    for(const id of Object.keys(state)){
+      if(state[id]?.address) filled++;
+    }
+    tagStock.textContent = `Dolu: ${filled}`;
+  }
+
+  // =========================
+  // 6) QR Modal / Scanner
+  // =========================
+  function openQrModal(){
+    modalBackdrop.style.display = "flex";
+    startScanner();
+  }
+  function closeQrModal(){
+    modalBackdrop.style.display = "none";
+    stopScanner();
+  }
+
+  async function startScanner(){
+    try{
+      if(qrScanner) return;
+      qrScanner = new Html5Qrcode("qrReader");
+      const devices = await Html5Qrcode.getCameras();
+      const camId = devices?.[0]?.id;
+      if(!camId){
+        toast("Kamera bulunamadı.");
+        return;
+      }
+
+      await qrScanner.start(
+        camId,
+        { fps: 12, qrbox: { width: 260, height: 260 } },
+        (decodedText) => {
+          const now = Date.now();
+          if(now - lastScanTs < 900) return;
+          lastScanTs = now;
+
+          const id = (decodedText || "").trim();
+          if(!id) return;
+
+          setActive(id);
+          closeQrModal();
+          // okunduktan sonra: kullanıcı adres seçsin
+          toast("Şimdi krokiden adres seç → ONAYLA");
+        },
+        () => {}
+      );
+    }catch(err){
+      console.error(err);
+      toast("Kamera açılamadı. (HTTPS + izin gerekli)");
+    }
+  }
+
+  async function stopScanner(){
+    try{
+      if(!qrScanner) return;
+      await qrScanner.stop();
+      await qrScanner.clear();
+      qrScanner = null;
+      const el = document.getElementById("qrReader");
+      if(el) el.innerHTML = "";
+    }catch(e){
+      qrScanner = null;
+      const el = document.getElementById("qrReader");
+      if(el) el.innerHTML = "";
+    }
+  }
+
+  async function pasteQr(){
+    const val = prompt("QR içeriğini yapıştır (örn: KBN-2026-000483)");
+    if(!val) return;
+    setActive(val.trim());
+    toast("Şimdi krokiden adres seç → ONAYLA");
+  }
+
+  // =========================
+  // 7) Kroki render + occupancy
+  // =========================
+  function buildZone({mount, depoNo, title, patternRows}){
+    const zone = document.createElement("div");
+    zone.className = "zone";
+    zone.dataset.depo = String(depoNo);
+
+    const header = document.createElement("div");
+    header.className = "zoneHeader";
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = title;
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = "—";
+
+    header.appendChild(name);
+    header.appendChild(meta);
+
+    const grid = document.createElement("div");
+    grid.className = "patternGrid";
+
+    zone.appendChild(header);
+    zone.appendChild(grid);
+    mount.appendChild(zone);
+
+    const rows = patternRows.length;
+    const cols = Math.max(...patternRows.map(r => r.length));
+    grid.style.gridTemplateColumns = `repeat(${cols}, var(--slot))`;
+
+    let palletCount = 0, doorCount = 0, wallCount = 0;
+    const skip = new Set();
+
+    for(let r=0; r<rows; r++){
+      const row = patternRows[r].padEnd(cols, '.');
+      for(let c=0; c<cols; c++){
+        const keyRC = `${r},${c}`;
+        if(skip.has(keyRC)){
+          const v = document.createElement("div");
+          v.className = "voidCell";
+          grid.appendChild(v);
+          continue;
+        }
+
+        const ch = row[c];
+
+        if(ch === '.'){
+          const v = document.createElement("div");
+          v.className = "voidCell";
+          grid.appendChild(v);
+          continue;
+        }
+
+        if(ch === 'W' || ch === '|' || ch === 'L'){
+          const w = document.createElement("div");
+          w.className = "wallCell " + (ch === 'W' ? 'wallH' : ch === '|' ? 'wallV' : 'wallC');
+          grid.appendChild(w);
+          wallCount++;
+          continue;
+        }
+
+        if(ch === 'D'){
+          doorCount++;
+          const doorId = pad2(doorCount);
+          if(c + 1 < cols) skip.add(`${r},${c+1}`);
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "slot door";
+          const addr = `D${depoNo}-DOOR-${doorId}`;
+          btn.dataset.addr = addr;
+          btn.style.gridColumn = "span 2";
+          btn.textContent = "KAPI";
+          btn.addEventListener("click", () => onSlotClick(addr, btn));
+          grid.appendChild(btn);
+          continue;
+        }
+
+        if(ch === 'P'){
+          palletCount++;
+          const R = pad2(r + 1);
+          const Cc = pad2(c + 1);
+          const addr = `D${depoNo}-R${R}-C${Cc}`;
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "slot";
+          btn.dataset.addr = addr;
+          btn.addEventListener("click", () => onSlotClick(addr, btn));
+          grid.appendChild(btn);
+          continue;
+        }
+
+        const v = document.createElement("div");
+        v.className = "voidCell";
+        grid.appendChild(v);
+      }
+    }
+
+    meta.textContent = `${palletCount} Palet • ${doorCount} Kapı • ${wallCount} Duvar`;
+  }
+
+  function onSlotClick(addr, btn){
+    if(!activeId){
+      toast("Önce QR okut.");
+      return;
+    }
+    // seçimi değiştir
+    if(selectedBtn) selectedBtn.classList.remove("selected");
+    selectedAddr = addr;
+    selectedBtn = btn;
+    btn.classList.add("selected");
+
+    tagAddr.textContent = `Adres: ${addr}`;
+    tagAddr.className = "tag ok";
+
+    showConfirmBar();
+    toast(`Adres seçildi: ${addr} → alttan ONAYLA`);
+  }
+
+  function applyTabFilter(tab){
+    const zones = [...canvas.querySelectorAll(".zone")];
+    zones.forEach(z=>{
+      if(tab === "all") z.style.display = "inline-block";
+      else z.style.display = (z.dataset.depo === tab) ? "inline-block" : "none";
+    });
+  }
+
+  tabsWrap.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".tab");
+    if(!btn) return;
+    [...tabsWrap.querySelectorAll(".tab")].forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    applyTabFilter(btn.dataset.tab);
+  });
+
+  function renderOccupancy(){
+    // adress->count
+    const addrMap = {};
+    for(const id of Object.keys(state)){
+      const a = state[id]?.address;
+      if(!a) continue;
+      addrMap[a] = (addrMap[a] || 0) + 1;
+    }
+
+    const slots = [...document.querySelectorAll(".slot")];
+    slots.forEach(el=>{
+      el.classList.remove("has-pallet");
+      const tiny = el.querySelector(".tiny");
+      if(tiny) tiny.remove();
+    });
+
+    slots.forEach(el=>{
+      const a = el.dataset.addr;
+      if(!a) return;
+      const cnt = addrMap[a] || 0;
+      if(cnt > 0){
+        el.classList.add("has-pallet");
+        const t = document.createElement("span");
+        t.className = "tiny";
+        t.textContent = String(cnt);
+        el.appendChild(t);
+      }
+    });
+  }
+
+  // =========================
+  // 8) Export
+  // =========================
+  function downloadBlob(filename, content, mime){
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportJSON(){
+    const payload = {
+      exported_at: nowISO(),
+      state,
+      logs
+    };
+    downloadBlob(`kanban_address_export_${Date.now()}.json`, JSON.stringify(payload, null, 2), "application/json");
+    toast("JSON indirildi.");
+  }
+
+  // =========================
+  // 9) Load DB + Init
+  // =========================
+  async function loadDB(){
+    const res = await fetch("./data.json", { cache:"no-store" });
+    if(!res.ok) throw new Error("data.json okunamadı");
+    DB = await res.json();
+    document.title = DB?.app?.title || "Adresleme – Kanban QR";
+  }
+
+  // =========================
+  // 10) Hooks
+  // =========================
+  btnScan.addEventListener("click", openQrModal);
+  btnPaste.addEventListener("click", pasteQr);
+  btnClear.addEventListener("click", () => { clearSelection(); toast("Seçim temizlendi."); });
+
+  btnUnassign.addEventListener("click", unassign);
+  btnExport.addEventListener("click", exportJSON);
+
+  btnCloseModal.addEventListener("click", closeQrModal);
+  modalBackdrop.addEventListener("click", (e)=>{ if(e.target === modalBackdrop) closeQrModal(); });
+
+  btnBarCancel.addEventListener("click", () => { clearSelection(); toast("Vazgeçildi."); });
+  btnBarConfirm.addEventListener("click", saveAddress);
+
+  // =========================
+  // 11) Start
+  // =========================
+  (async () => {
+    try{
+      await loadDB();
+    }catch(err){
+      console.error(err);
+      alert("data.json yüklenemedi. Bu dosya ile aynı klasörde olduğundan emin ol.");
+      return;
+    }
+
+    // build kroki
+    buildZone({ mount: canvas, depoNo: 3, title: "Depo 3 (Üst) — D3", patternRows: PATTERN_D3 });
+    buildZone({ mount: canvas, depoNo: 2, title: "Depo 2 (Orta) — D2", patternRows: PATTERN_D2 });
+    buildZone({ mount: canvas, depoNo: 1, title: "Depo 1 (Alt) — D1", patternRows: PATTERN_D1 });
+
+    applyTabFilter("all");
+    setActive(""); // boş başla
+    renderOccupancy();
+    updateStockTag();
+    clearSelection();
+
+    toast("Hazır. QR okut → adres seç → ONAYLA.");
+  })();
+})();
+</script>
+</body>
+</html>
